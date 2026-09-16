@@ -1,0 +1,337 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model College {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  shortName      String
+  city           String
+  state          String
+  country        String          @default("India")
+  logo           String?
+  banner         String?
+  website        String?
+  verified       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  users          User[]
+  listings       Listing[]
+  communities    Community[]
+  communityPosts CommunityPost[]
+  lostFoundPosts LostFoundPost[]
+  conversations  Conversation[]
+
+  @@index([shortName])
+  @@index([city])
+}
+
+model CollegeRequest {
+  id          String   @id @default(cuid())
+  collegeName String
+  shortName   String
+  city        String
+  state       String
+  email       String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt   DateTime @default(now())
+}
+
+model User {
+  id             String          @id @default(cuid())
+  clerkId        String?         @unique
+  email          String          @unique
+  name           String
+  username       String?         @unique
+  course         String?
+  branch         String?
+  gradYear       Int?
+  avatar         String?
+  bio            String?
+  role           String          @default("STUDENT") // STUDENT, MODERATOR, ADMIN
+  isVerified     Boolean         @default(false)
+  collegeId      String?
+  college        College?        @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  listings       Listing[]
+  savedListings  SavedListing[]
+  communityMemberships CommunityMember[]
+  communityPosts CommunityPost[]
+  comments       Comment[]
+  reactions      Reaction[]
+  lostFoundPosts LostFoundPost[]
+  participants   ConversationParticipant[]
+  messages       Message[]
+  notifications  Notification[]
+  reportsCreated Report[]        @relation("ReportCreator")
+
+  @@index([collegeId])
+  @@index([clerkId])
+}
+
+model Listing {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  category    String // ELECTRONICS, TEXTBOOKS, CYCLES, FURNITURE, HOSTEL_ESSENTIALS, CLOTHING, GADGETS, OTHER
+  price       Float
+  condition   String // NEW, LIKE_NEW, GOOD, FAIR
+  negotiable  Boolean        @default(true)
+  location    String // e.g. Hostel 4, Main Library, Campus Gate
+  status      String         @default("ACTIVE") // ACTIVE, SOLD, ARCHIVED
+  views       Int            @default(0)
+  isFeatured  Boolean        @default(false)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId   String
+  college     College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  images      ListingImage[]
+  savedBy     SavedListing[]
+  conversations Conversation[]
+
+  @@index([collegeId])
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ListingImage {
+  id        String   @id @default(cuid())
+  url       String
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model SavedListing {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([listingId])
+}
+
+model Community {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String
+  description String
+  image       String?
+  banner      String?
+  type        String            @default("PUBLIC") // PUBLIC, PRIVATE
+  postingMode String            @default("BOTH") // IDENTIFIED, ANONYMOUS, BOTH
+  collegeId   String
+  college     College           @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  members     CommunityMember[]
+  posts       CommunityPost[]
+
+  @@unique([collegeId, slug])
+  @@index([collegeId])
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("MEMBER") // MEMBER, MODERATOR, ADMIN
+  createdAt   DateTime  @default(now())
+
+  @@unique([communityId, userId])
+  @@index([communityId])
+  @@index([userId])
+}
+
+model CommunityPost {
+  id          String      @id @default(cuid())
+  title       String
+  content     String
+  image       String?
+  isAnonymous Boolean     @default(false)
+  upvotes     Int         @default(0)
+  authorId    String
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  communityId String
+  community   Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  collegeId   String
+  college     College     @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  comments    Comment[]
+  reactions   Reaction[]
+
+  @@index([communityId])
+  @@index([collegeId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id          String        @id @default(cuid())
+  content     String
+  isAnonymous Boolean       @default(false)
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postId      String
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model Reaction {
+  id        String        @id @default(cuid())
+  type      String        @default("LIKE") // LIKE, HELPFUL, FIRE, LAUGH
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([userId, postId, type])
+  @@index([postId])
+}
+
+model LostFoundPost {
+  id            String           @id @default(cuid())
+  type          String // LOST, FOUND
+  title         String
+  description   String
+  category      String // ELECTRONICS, WALLETS_KEYS, IDS_DOCS, BAGS, CLOTHING, ACCESSORIES, BOOKS, OTHER
+  location      String // e.g. Central Library 2nd Floor, Campus Canteen
+  dateLostFound DateTime         @default(now())
+  contactInfo   String? // Optional voluntary contact info
+  status        String           @default("ACTIVE") // ACTIVE, RESOLVED
+  authorId      String
+  author        User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  collegeId     String
+  college       College          @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  images        LostFoundImage[]
+  conversations Conversation[]
+
+  @@index([collegeId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LostFoundImage {
+  id        String        @id @default(cuid())
+  url       String
+  postId    String
+  post      LostFoundPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@index([postId])
+}
+
+model Conversation {
+  id              String                    @id @default(cuid())
+  collegeId       String
+  college         College                   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  listingId       String?
+  listing         Listing?                  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  lostFoundPostId String?
+  lostFoundPost   LostFoundPost?            @relation(fields: [lostFoundPostId], references: [id], onDelete: SetNull)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  participants    ConversationParticipant[]
+  messages        Message[]
+
+  @@index([collegeId])
+  @@index([listingId])
+  @@index([lostFoundPostId])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String
+  isSystem       Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // MESSAGE, LISTING_INQUIRY, COMMENT, REACTION, LOST_FOUND, SYSTEM
+  title     String
+  message   String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([readAt])
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  reporterId  String
+  reporter    User      @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType  String // LISTING, COMMUNITY_POST, COMMENT, LOST_FOUND, USER
+  targetId    String
+  reason      String // SPAM, SCAM, HARASSMENT, INAPPROPRIATE, FAKE_LISTING, OTHER
+  description String?
+  status      String    @default("PENDING") // PENDING, REVIEWED, RESOLVED, DISMISSED
+  adminNotes  String?
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  @@index([targetType, targetId])
+  @@index([status])
+}
