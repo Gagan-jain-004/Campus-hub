@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -30,7 +30,7 @@ import {
   Trash2,
 } from 'lucide-react';
 
-export default function ProfilePage() {
+function ProfileContent() {
   const { user, isAuthenticated, login } = useAuth();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'overview';
@@ -643,5 +643,20 @@ export default function ProfilePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[70vh] flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="text-xs font-mono text-slate-400">Loading student profile...</span>
+        </div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 }
