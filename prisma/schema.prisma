@@ -87,6 +87,7 @@ model Listing {
   condition   String // NEW, LIKE_NEW, GOOD, FAIR
   negotiable  Boolean        @default(true)
   location    String // e.g. Hostel 4, Main Library, Campus Gate
+  contactInfo String? // Optional voluntary contact info (e.g. phone/WhatsApp)
   status      String         @default("ACTIVE") // ACTIVE, SOLD, ARCHIVED
   views       Int            @default(0)
   isFeatured  Boolean        @default(false)

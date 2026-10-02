@@ -112,6 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: data.data.email,
               username: data.data.username,
               avatar: data.data.avatar,
+              course: data.data.course || null,
+              branch: data.data.branch || null,
+              gradYear: data.data.gradYear || null,
               role: data.data.role,
               isVerified: data.data.isVerified,
               collegeId: data.data.collegeId,
@@ -188,7 +191,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const openAuthModal = () => setIsAuthModalOpen(true);
+  const openAuthModal = () => {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/sign-in';
+    }
+  };
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
   return (

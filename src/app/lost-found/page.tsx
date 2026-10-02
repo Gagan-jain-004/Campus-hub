@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { LostFoundCard } from '@/components/lostfound/LostFoundCard';
 import { LOST_FOUND_CATEGORIES } from '@/lib/constants';
@@ -15,17 +16,26 @@ import {
   ShieldCheck,
   Building2,
   PackageCheck,
+  X,
 } from 'lucide-react';
 
-export default function LostFoundPage() {
+function LostFoundContent() {
   const { activeCollegeId, activeCollegeShortName } = useAuth();
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreatedBanner, setShowCreatedBanner] = useState(false);
 
   // Filters
   const [type, setType] = useState<'ALL' | 'LOST' | 'FOUND'>('ALL');
   const [category, setCategory] = useState('ALL');
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (searchParams.get('created') === '1') {
+      setShowCreatedBanner(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchPosts();
@@ -54,6 +64,30 @@ export default function LostFoundPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Success banner if redirected after creation */}
+      {showCreatedBanner && (
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3">
+            <span className="p-2 bg-emerald-100 dark:bg-emerald-900/80 rounded-xl text-emerald-600 dark:text-emerald-300">
+              <CheckCircle2 className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-xs font-bold sm:text-sm">Post Created Successfully! 🎉</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                Aapki Lost &amp; Found report live ho chuki hai aur campus feed me sabhi ko dikh rahi hai.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCreatedBanner(false)}
+            className="p-1.5 hover:bg-emerald-200/50 dark:hover:bg-emerald-900/50 rounded-lg text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 transition-colors cursor-pointer"
+            title="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
@@ -179,5 +213,18 @@ export default function LostFoundPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function LostFoundPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-16 text-center text-slate-400 flex flex-col items-center gap-2">
+        <Loader2 className="w-8 h-8 animate-spin text-rose-600" />
+        <span className="text-xs font-mono">Loading Lost & Found...</span>
+      </div>
+    }>
+      <LostFoundContent />
+    </Suspense>
   );
 }

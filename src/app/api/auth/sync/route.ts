@@ -51,12 +51,15 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
+      const baseUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9]/gi, '') || 'student';
+      const uniqueUsername = `${baseUsername}_${Math.random().toString(36).substring(2, 6)}`;
+
       user = await prisma.user.create({
         data: {
           clerkId: clerkId || null,
           email: cleanEmail,
           name: name?.trim() || cleanEmail.split('@')[0],
-          username: cleanEmail.split('@')[0].replace(/[^a-z0-9]/gi, ''),
+          username: uniqueUsername,
           avatar: avatar || null,
           role,
           collegeId: rtuCollege.id,
@@ -90,6 +93,10 @@ export async function POST(request: Request) {
         email: user.email,
         username: user.username,
         avatar: user.avatar,
+        course: user.course || null,
+        branch: user.branch || null,
+        gradYear: user.gradYear || null,
+        bio: user.bio || null,
         role: user.role,
         isVerified: user.isVerified,
         collegeId: user.collegeId,

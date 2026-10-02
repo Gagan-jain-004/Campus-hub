@@ -93,11 +93,11 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/onboarding"
+              href="/profile"
               className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <Building2 className="w-4 h-4 text-primary" />
-              <span>Set Up Student ID</span>
+              <span>Student Profile</span>
               <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
@@ -167,12 +167,12 @@ export default function HomePage() {
                 <Plus className="w-3.5 h-3.5" /> Post First Item
               </Link>
             ) : (
-              <button
-                onClick={openAuthModal}
+              <Link
+                href="/sign-in?redirect_url=/marketplace/sell"
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-primary rounded-xl"
               >
                 <Plus className="w-3.5 h-3.5" /> Sign In to Post
-              </button>
+              </Link>
             )}
           </div>
         ) : (
@@ -193,11 +193,11 @@ export default function HomePage() {
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
                 <h3 className="font-heading font-bold text-lg text-slate-900 dark:text-white">
-                  Campus Feeds & Confessions
+                  Campus Discussion Hub
                 </h3>
               </div>
               <Link href="/communities" className="text-xs font-semibold text-primary hover:underline">
-                All feeds →
+                All discussions →
               </Link>
             </div>
 

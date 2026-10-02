@@ -15,6 +15,9 @@ import {
   Mail,
   KeyRound,
   LogOut,
+  Trash2,
+  Search,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -23,6 +26,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [activeQueue, setActiveQueue] = useState<'reports' | 'colleges' | 'users'>('reports');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // User Deletion & Search State
+  const [searchUser, setSearchUser] = useState('');
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // Admin Login State
   const [adminEmail, setAdminEmail] = useState('');
@@ -38,10 +48,12 @@ export default function AdminPage() {
     }
   }, [isAdmin]);
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = async (query?: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin');
+      const q = query !== undefined ? query : searchUser;
+      const url = q ? `/api/admin?search=${encodeURIComponent(q)}` : '/api/admin';
+      const res = await fetch(url);
       const json = await res.json();
       if (json.success) {
         setData(json.data);
@@ -50,6 +62,33 @@ export default function AdminPage() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete?.id) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    setDeleteMessage('');
+
+    try {
+      const res = await fetch(`/api/admin?userId=${userToDelete.id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        setDeleteMessage(json.message || `User ${userToDelete.name} was permanently deleted.`);
+        setUserToDelete(null);
+        fetchAdminData();
+        setTimeout(() => setDeleteMessage(''), 5000);
+      } else {
+        setDeleteError(json.error || 'Failed to delete user.');
+      }
+    } catch (err: any) {
+      setDeleteError(err.message || 'An error occurred while deleting user.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -403,29 +442,171 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Recent Users */}
+          {/* Users / Students Management */}
           {activeQueue === 'users' && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-card divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {recentUsers.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500">
-                  No students registered yet.
+            <div className="space-y-4">
+              {/* User Search & Filter Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-card">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search students by name or email..."
+                    value={searchUser}
+                    onChange={(e) => {
+                      setSearchUser(e.target.value);
+                      fetchAdminData(e.target.value);
+                    }}
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
                 </div>
-              ) : (
-                recentUsers.map((u: any) => (
-                  <div key={u.id} className="p-3.5 flex items-center justify-between">
-                    <div>
-                      <span className="font-semibold text-slate-900 dark:text-white">{u.name}</span>
-                      <span className="text-slate-400 font-mono ml-2">({u.email})</span>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        {u.college?.shortName || 'No College'} • Role: {u.role}
+                <span className="text-xs font-mono text-slate-400 shrink-0">
+                  {recentUsers.length} student accounts found
+                </span>
+              </div>
+
+              {/* Delete feedback alert */}
+              {deleteMessage && (
+                <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <span>{deleteMessage}</span>
+                </div>
+              )}
+
+              {deleteError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              {/* Students List */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-card divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {recentUsers.length === 0 ? (
+                  <div className="p-10 text-center text-xs text-slate-500">
+                    No students matching your search query.
+                  </div>
+                ) : (
+                  recentUsers.map((u: any) => (
+                    <div key={u.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-sm text-slate-900 dark:text-white">
+                            {u.name}
+                          </span>
+                          <span className="text-slate-400 font-mono text-xs">
+                            ({u.email})
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-primary font-bold border border-indigo-200/60">
+                            {u.role}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-mono">
+                          <span>{u.college?.shortName || u.college?.name || 'No Campus Assigned'}</span>
+                          <span>•</span>
+                          <span>Joined {formatDate(u.createdAt)}</span>
+                        </div>
+
+                        {/* Counts badges */}
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            📦 {u._count?.listings || 0} Listings
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            💬 {u._count?.communityPosts || 0} Discussions
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            🔍 {u._count?.lostFoundPosts || 0} Lost/Found
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setUserToDelete(u)}
+                          className="px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-xl border border-rose-200 dark:border-rose-900 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete User & Data</span>
+                        </button>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-400">{formatDate(u.createdAt)}</span>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-modal p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-base text-slate-900 dark:text-white">
+                  Delete User & All Associated Data?
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  Target: {userToDelete.name} ({userToDelete.email})
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 space-y-1.5">
+              <p className="font-semibold">⚠️ Yeh action permanent hai aur undo nahi ho sakta:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                <li>User ka pura account permanently delete ho jayega</li>
+                <li>User ki sari Marketplace listings & photos delete ho jayengi</li>
+                <li>Sari discussion posts, comments & reactions delete ho jayenge</li>
+                <li>Sari Lost & Found recovery tickets delete ho jayengi</li>
+                <li>In-app messages & conversations wipe ho jayengi</li>
+              </ul>
+            </div>
+
+            {deleteError && (
+              <div className="p-2.5 text-xs text-rose-700 bg-rose-50 rounded-lg">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => {
+                  setUserToDelete(null);
+                  setDeleteError('');
+                }}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={handleDeleteUser}
+                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-subtle flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting User...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Permanently Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

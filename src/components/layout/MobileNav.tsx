@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingBag, Users, Search, PlusCircle, LayoutDashboard, MessageSquare } from 'lucide-react';
+import { ShoppingBag, Users, Search, PlusCircle, User, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export function MobileNav() {
@@ -12,10 +12,10 @@ export function MobileNav() {
 
   const links = [
     { href: '/marketplace', label: 'Market', icon: ShoppingBag },
-    { href: '/communities', label: 'Feeds', icon: Users },
+    { href: '/communities', label: 'Discuss', icon: MessageSquare },
     { href: '/marketplace/sell', label: 'Sell', icon: PlusCircle, isAction: true },
     { href: '/lost-found', label: 'Lost/Found', icon: Search },
-    { href: isAuthenticated ? '/dashboard' : '/messages', label: isAuthenticated ? 'Dashboard' : 'Chat', icon: isAuthenticated ? LayoutDashboard : MessageSquare },
+    { href: isAuthenticated ? '/profile' : '/messages', label: isAuthenticated ? 'Profile' : 'Chat', icon: isAuthenticated ? User : MessageSquare },
   ];
 
   return (

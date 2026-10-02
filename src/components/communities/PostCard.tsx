@@ -122,7 +122,7 @@ export function PostCard({ post, onDelete, onUpdate }: PostCardProps) {
     }
 
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const shareUrl = `${baseUrl}${post.community?.slug ? `/communities/${post.community.slug}` : '/communities'}#post-${post.id}`;
+    const shareUrl = `${baseUrl}/communities#post-${post.id}`;
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {

@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       condition,
       negotiable,
       location,
+      contactInfo,
       images,
       userId,
       collegeId,
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
         condition,
         negotiable: negotiable ?? true,
         location: location || 'Campus Area',
+        contactInfo: contactInfo ? contactInfo.trim() : null,
         userId,
         collegeId,
         images: {

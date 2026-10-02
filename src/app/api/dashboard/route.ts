@@ -4,7 +4,16 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    let userId = searchParams.get('userId');
+    const email = searchParams.get('email');
+
+    if (!userId && email) {
+      const dbUser = await prisma.user.findFirst({
+        where: { email: email.toLowerCase() },
+        select: { id: true },
+      });
+      if (dbUser) userId = dbUser.id;
+    }
 
     if (!userId) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });

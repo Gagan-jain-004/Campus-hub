@@ -65,7 +65,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { userId, status, price, title, description, category, condition, negotiable, location, images } = body;
+    const { userId, status, price, title, description, category, condition, negotiable, location, contactInfo, images } = body;
 
     const existingListing = await prisma.listing.findUnique({
       where: { id },
@@ -102,6 +102,7 @@ export async function PUT(
         ...(condition && { condition }),
         ...(negotiable !== undefined && { negotiable: !!negotiable }),
         ...(location && { location: location.trim() }),
+        ...(contactInfo !== undefined && { contactInfo: contactInfo ? contactInfo.trim() : null }),
       },
       include: {
         images: true,

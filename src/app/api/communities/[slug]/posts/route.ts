@@ -131,19 +131,27 @@ export async function POST(
   try {
     const { slug } = await params;
     const body = await request.json();
-    const { title, content, image, isAnonymous, authorId, collegeId, communityId: explicitCommunityId } = body;
+    const { title, content, image, isAnonymous, authorId, userId, collegeId, communityId: explicitCommunityId } = body;
 
-    if (!title || !content || !authorId || !collegeId) {
-      return NextResponse.json({ success: false, error: 'Title, content, author and college are required' }, { status: 400 });
+    const resolvedAuthorId = authorId || userId;
+
+    if (!title || !content || !resolvedAuthorId || !collegeId) {
+      return NextResponse.json({ success: false, error: 'Title, content, author and campus are required' }, { status: 400 });
+    }
+
+    // Verify user exists by id or clerkId
+    let user = await prisma.user.findUnique({ where: { id: resolvedAuthorId } });
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { clerkId: resolvedAuthorId } });
+    }
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'User not found. Please log in again.' }, { status: 404 });
     }
 
     let communityId = explicitCommunityId;
-    if (!communityId) {
+    if (!communityId && slug && slug !== 'all') {
       const comm = await prisma.community.findFirst({
-        where: {
-          slug,
-          collegeId,
-        },
+        where: { slug, collegeId },
       });
       if (comm) communityId = comm.id;
     }
@@ -155,13 +163,31 @@ export async function POST(
       if (fallbackComm) communityId = fallbackComm.id;
     }
 
+    if (!communityId) {
+      let generalComm = await prisma.community.findFirst({
+        where: { slug: 'general', collegeId },
+      });
+      if (!generalComm) {
+        generalComm = await prisma.community.create({
+          data: {
+            name: 'Campus Discussion',
+            slug: 'general',
+            description: 'Campus open discussion feed',
+            postingMode: 'PUBLIC',
+            collegeId,
+          },
+        });
+      }
+      communityId = generalComm.id;
+    }
+
     const post = await prisma.communityPost.create({
       data: {
-        title,
-        content,
+        title: title.trim(),
+        content: content.trim(),
         image: image || null,
         isAnonymous: !!isAnonymous,
-        authorId,
+        authorId: user.id,
         communityId,
         collegeId,
       },

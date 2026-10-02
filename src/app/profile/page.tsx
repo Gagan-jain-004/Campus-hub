@@ -45,7 +45,6 @@ function ProfileContent() {
   // Edit Form State
   const [editForm, setEditForm] = useState({
     name: '',
-    username: '',
     course: '',
     branch: '',
     gradYear: '',
@@ -57,21 +56,31 @@ function ProfileContent() {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id || user?.email) {
       fetchProfile();
+    } else {
+      setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.email]);
 
   const fetchProfile = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/profile?userId=${user?.id}`);
+      const queryParam = user?.id
+        ? `userId=${user.id}`
+        : user?.email
+        ? `email=${encodeURIComponent(user.email)}`
+        : '';
+      if (!queryParam) {
+        setLoading(false);
+        return;
+      }
+      const res = await fetch(`/api/profile?${queryParam}`);
       const json = await res.json();
       if (json.success && json.data) {
         setProfileData(json.data);
         setEditForm({
           name: json.data.name || '',
-          username: json.data.username || '',
           course: json.data.course || '',
           branch: json.data.branch || '',
           gradYear: json.data.gradYear ? String(json.data.gradYear) : '',
@@ -101,7 +110,6 @@ function ProfileContent() {
         body: JSON.stringify({
           userId: user.id,
           name: editForm.name,
-          username: editForm.username,
           course: editForm.course,
           branch: editForm.branch,
           gradYear: editForm.gradYear,
@@ -117,7 +125,6 @@ function ProfileContent() {
         login({
           ...user,
           name: json.data.name,
-          username: json.data.username,
           course: json.data.course,
           branch: json.data.branch,
           gradYear: json.data.gradYear,
@@ -225,7 +232,7 @@ function ProfileContent() {
                 </div>
 
                 <p className="text-xs text-slate-500 font-mono">
-                  {profile?.username ? `@${profile.username}` : profile?.email}
+                  {profile?.email}
                 </p>
               </div>
             </div>
@@ -234,7 +241,7 @@ function ProfileContent() {
             <div className="flex items-center justify-center sm:justify-end gap-2">
               <button
                 onClick={() => setActiveTab('edit')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 text-xs font-semibold transition-colors shadow-subtle"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 text-xs font-semibold transition-colors shadow-subtle cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5 text-primary" />
                 <span>Edit Profile</span>
@@ -249,7 +256,7 @@ function ProfileContent() {
               <div className="truncate">
                 <span className="block text-[10px] text-slate-400 uppercase font-mono">Course</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  {profile?.course || 'Not specified (Edit Profile)'}
+                  {profile?.course || 'Not specified'}
                 </span>
               </div>
             </div>
@@ -269,7 +276,7 @@ function ProfileContent() {
               <div className="truncate">
                 <span className="block text-[10px] text-slate-400 uppercase font-mono">Batch / Grad Year</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {profile?.gradYear ? `Class of ${profile.gradYear}` : 'Class of 2026'}
+                  {profile?.gradYear ? `Class of ${profile.gradYear}` : 'Not specified'}
                 </span>
               </div>
             </div>
@@ -424,32 +431,17 @@ function ProfileContent() {
           )}
 
           <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Unique Username (@handle)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. gagan_rtu"
-                  value={editForm.username}
-                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

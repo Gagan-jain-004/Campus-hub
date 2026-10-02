@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
+  User,
   ShoppingBag,
   Users,
   Search,
@@ -26,7 +27,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: '/marketplace', label: 'Marketplace', icon: ShoppingBag },
-    { href: '/communities', label: 'Communities', icon: Users },
+    { href: '/communities', label: 'Discussions', icon: MessageSquare },
     { href: '/lost-found', label: 'Lost & Found', icon: Search },
   ];
 
@@ -142,7 +143,7 @@ export function Navbar() {
                         {user.name}
                       </p>
                       <p className="text-[10px] font-mono text-slate-400 truncate">
-                        {user.username ? `@${user.username}` : user.email}
+                        {user.email}
                       </p>
                       <div className="pt-1 flex items-center gap-1.5">
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-primary font-bold">
@@ -157,37 +158,28 @@ export function Navbar() {
                     </div>
 
                     <Link
-                      href="/profile"
-                      onClick={() => setShowUserMenu(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
-                    >
-                      <LayoutDashboard className="w-3.5 h-3.5 text-primary" />
-                      <span>View My Profile</span>
-                    </Link>
-
-                    <Link
-                      href="/profile?tab=edit"
-                      onClick={() => setShowUserMenu(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
-                    >
-                      <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Edit Profile</span>
-                    </Link>
-
-                    <Link
                       href="/dashboard"
                       onClick={() => setShowUserMenu(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                     >
-                      <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
+                      <LayoutDashboard className="w-3.5 h-3.5 text-primary" />
                       <span>Student Dashboard</span>
+                    </Link>
+
+                    <Link
+                      href="/profile"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <span>View / Edit Profile</span>
                     </Link>
 
                     {user.role === 'ADMIN' && (
                       <Link
                         href="/admin"
                         onClick={() => setShowUserMenu(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                       >
                         <Shield className="w-3.5 h-3.5 text-slate-400" />
                         <span>Admin Portal</span>
@@ -213,7 +205,7 @@ export function Navbar() {
           ) : (
             <Link
               href="/sign-in"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5 text-primary" />
               <span>Sign In</span>

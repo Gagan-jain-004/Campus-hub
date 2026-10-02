@@ -30,15 +30,25 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'listings' | 'saved' | 'communities' | 'lostfound' | 'notifications'>('listings');
 
   useEffect(() => {
-    if (user) {
+    if (user?.id || user?.email) {
       fetchDashboardData();
+    } else {
+      setLoading(false);
     }
-  }, [user]);
+  }, [user?.id, user?.email]);
 
   const fetchDashboardData = async () => {
-    if (!user) return;
     try {
-      const res = await fetch(`/api/dashboard?userId=${user.id}`);
+      const queryParam = user?.id
+        ? `userId=${user.id}`
+        : user?.email
+        ? `email=${encodeURIComponent(user.email)}`
+        : '';
+      if (!queryParam) {
+        setLoading(false);
+        return;
+      }
+      const res = await fetch(`/api/dashboard?${queryParam}`);
       const json = await res.json();
       if (json.success) {
         setData(json.data);
@@ -73,12 +83,27 @@ export default function DashboardPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="text-xs font-mono text-slate-400">Loading student dashboard...</span>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="max-w-md mx-auto py-20 px-4 text-center space-y-4">
         <LayoutDashboard className="w-10 h-10 text-primary mx-auto" />
-        <h2 className="text-xl font-bold">Please log in</h2>
-        <p className="text-xs text-slate-500">Log in to manage your campus listings and saved items.</p>
+        <h2 className="text-xl font-bold">Please Sign In</h2>
+        <p className="text-xs text-slate-500">Sign in to manage your campus listings and saved items.</p>
+        <Link
+          href="/sign-in?redirect_url=/dashboard"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-primary rounded-xl"
+        >
+          Sign In
+        </Link>
       </div>
     );
   }

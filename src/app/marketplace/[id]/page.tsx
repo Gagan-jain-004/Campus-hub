@@ -25,6 +25,7 @@ import {
   X,
   AlertTriangle,
   Tag,
+  Phone,
 } from 'lucide-react';
 import { CATEGORIES, CONDITIONS } from '@/lib/constants';
 import { ReportModal } from '@/components/common/ReportModal';
@@ -51,6 +52,7 @@ export default function ListingDetailPage() {
   const [editCondition, setEditCondition] = useState('GOOD');
   const [editNegotiable, setEditNegotiable] = useState(true);
   const [editLocation, setEditLocation] = useState('');
+  const [editContactInfo, setEditContactInfo] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editStatus, setEditStatus] = useState('ACTIVE');
   const [editImages, setEditImages] = useState<string[]>([]);
@@ -87,6 +89,7 @@ export default function ListingDetailPage() {
     setEditCondition(item.condition);
     setEditNegotiable(item.negotiable);
     setEditLocation(item.location);
+    setEditContactInfo(item.contactInfo || '');
     setEditDescription(item.description);
     setEditStatus(item.status);
     setEditImages(item.images?.map((i: any) => i.url) || []);
@@ -114,6 +117,7 @@ export default function ListingDetailPage() {
           condition: editCondition,
           negotiable: editNegotiable,
           location: editLocation.trim(),
+          contactInfo: editContactInfo.trim(),
           description: editDescription.trim(),
           status: editStatus,
           images: editImages,
@@ -544,6 +548,46 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
+            {/* Direct Contact Info (If provided by seller) */}
+            {listing.contactInfo && (
+              <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span>Seller Direct Contact</span>
+                  </div>
+                  <span className="text-[10px] font-mono uppercase font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
+                    Direct
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/40">
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                    {listing.contactInfo}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {listing.contactInfo.replace(/\D/g, '').length >= 10 && (
+                      <>
+                        <a
+                          href={`https://wa.me/${listing.contactInfo.replace(/\D/g, '').length === 10 ? '91' + listing.contactInfo.replace(/\D/g, '') : listing.contactInfo.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${listing.user?.name || ''}! I am interested in buying your "${listing.title}" on CampusHub.`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center gap-1 shadow-subtle transition-all cursor-pointer"
+                        >
+                          WhatsApp
+                        </a>
+                        <a
+                          href={`tel:${listing.contactInfo.replace(/\D/g, '')}`}
+                          className="px-2.5 py-1 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 text-[11px] font-semibold transition-all cursor-pointer"
+                        >
+                          Call
+                        </a>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Overview & Metadata Table */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
               <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
@@ -723,6 +767,20 @@ export default function ListingDetailPage() {
                     <option value="SOLD">SOLD OUT</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Direct Contact Info */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Direct Contact Info (Optional Phone / WhatsApp / Room No.)
+                </label>
+                <input
+                  type="text"
+                  value={editContactInfo}
+                  onChange={(e) => setEditContactInfo(e.target.value)}
+                  placeholder="e.g. +91 9876543210 / WhatsApp / Hostel 4 Room 205"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
               </div>
 
               {/* Description */}

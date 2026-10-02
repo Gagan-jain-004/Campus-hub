@@ -155,15 +155,32 @@ export function AuthModal() {
             </div>
           )}
 
-          <div className="pt-2">
+          <div className="pt-2 space-y-2.5">
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle flex items-center justify-center gap-1.5 transition-all"
+              className="w-full py-2.5 px-4 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5" />}
               <span>Continue to CampusHub</span>
             </button>
+
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase">
+                <span className="bg-white dark:bg-slate-900 px-2 text-slate-400 font-mono">Or</span>
+              </div>
+            </div>
+
+            <a
+              href="/sign-in"
+              onClick={closeAuthModal}
+              className="w-full py-2 px-4 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <span>Sign In with Clerk / Google</span>
+            </a>
           </div>
         </form>
       </div>
