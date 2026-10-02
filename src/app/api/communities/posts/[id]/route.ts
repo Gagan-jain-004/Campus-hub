@@ -7,10 +7,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const post = await prisma.lostFoundPost.findUnique({
+    const post = await prisma.communityPost.findUnique({
       where: { id },
       include: {
-        images: true,
         author: {
           select: {
             id: true,
@@ -19,14 +18,35 @@ export async function GET(
             avatar: true,
             isVerified: true,
             branch: true,
-            course: true,
+            gradYear: true,
           },
         },
-        college: {
+        community: {
           select: {
             id: true,
             name: true,
-            shortName: true,
+            slug: true,
+          },
+        },
+        comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                avatar: true,
+                isVerified: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        reactions: true,
+        _count: {
+          select: {
+            comments: true,
+            reactions: true,
           },
         },
       },
@@ -38,7 +58,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: post });
   } catch (error: any) {
-    console.error('Error fetching lost/found item:', error);
+    console.error('Error fetching post:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -50,9 +70,9 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { userId, type, title, description, category, location, dateLostFound, contactInfo, status, images } = body;
+    const { userId, title, content, image, isAnonymous } = body;
 
-    const existingPost = await prisma.lostFoundPost.findUnique({
+    const existingPost = await prisma.communityPost.findUnique({
       where: { id },
     });
 
@@ -63,33 +83,19 @@ export async function PUT(
     if (userId) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user || (existingPost.authorId !== userId && user.role !== 'ADMIN')) {
-        return NextResponse.json({ success: false, error: 'Unauthorized to edit this post' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'You are not authorized to edit this post' }, { status: 403 });
       }
     }
 
-    if (images && Array.isArray(images)) {
-      await prisma.lostFoundImage.deleteMany({ where: { postId: id } });
-      if (images.length > 0) {
-        await prisma.lostFoundImage.createMany({
-          data: images.map((url: string) => ({ url, postId: id })),
-        });
-      }
-    }
-
-    const updated = await prisma.lostFoundPost.update({
+    const updated = await prisma.communityPost.update({
       where: { id },
       data: {
-        ...(type && { type }),
-        ...(title && { title: title.trim() }),
-        ...(description && { description: description.trim() }),
-        ...(category && { category }),
-        ...(location && { location: location.trim() }),
-        ...(dateLostFound && { dateLostFound: new Date(dateLostFound) }),
-        ...(contactInfo !== undefined && { contactInfo: contactInfo ? contactInfo.trim() : null }),
-        ...(status && { status }),
+        ...(title !== undefined && { title: title.trim() }),
+        ...(content !== undefined && { content: content.trim() }),
+        ...(image !== undefined && { image: image || null }),
+        ...(isAnonymous !== undefined && { isAnonymous: !!isAnonymous }),
       },
       include: {
-        images: true,
         author: {
           select: {
             id: true,
@@ -98,22 +104,36 @@ export async function PUT(
             avatar: true,
             isVerified: true,
             branch: true,
-            course: true,
           },
         },
-        college: {
+        community: {
           select: {
             id: true,
             name: true,
-            shortName: true,
+            slug: true,
           },
         },
+        comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                avatar: true,
+                isVerified: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        reactions: true,
       },
     });
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {
-    console.error('Error updating lost/found item:', error);
+    console.error('Error updating post:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -127,7 +147,7 @@ export async function DELETE(
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    const existingPost = await prisma.lostFoundPost.findUnique({
+    const existingPost = await prisma.communityPost.findUnique({
       where: { id },
     });
 
@@ -138,14 +158,17 @@ export async function DELETE(
     if (userId) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user || (existingPost.authorId !== userId && user.role !== 'ADMIN')) {
-        return NextResponse.json({ success: false, error: 'Unauthorized to delete this post' }, { status: 403 });
+        return NextResponse.json({ success: false, error: 'You are not authorized to delete this post' }, { status: 403 });
       }
     }
 
-    await prisma.lostFoundPost.delete({ where: { id } });
-    return NextResponse.json({ success: true, message: 'Item deleted' });
+    await prisma.communityPost.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true, message: 'Post deleted successfully' });
   } catch (error: any) {
-    console.error('Error deleting lost/found item:', error);
+    console.error('Error deleting post:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

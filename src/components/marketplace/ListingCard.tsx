@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatPrice, formatTimeAgo } from '@/lib/utils';
-import { MapPin, Bookmark, CheckCircle2, ShieldCheck, Tag, Share2, Check } from 'lucide-react';
+import { MapPin, Bookmark, CheckCircle2, ShieldCheck, Tag, Share2, Check, Pencil } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { CONDITIONS } from '@/lib/constants';
 
@@ -21,6 +21,7 @@ interface ListingCardProps {
     views: number;
     createdAt: string | Date;
     images?: { url: string }[];
+    userId?: string;
     user?: {
       id: string;
       name: string;
@@ -48,6 +49,10 @@ export function ListingCard({ listing, isSavedInitial = false, onSaveToggle }: L
   const [isSaved, setIsSaved] = useState(isSavedInitial);
   const [saveLoading, setSaveLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const isOwner = Boolean(
+    user && (user.id === listing.user?.id || user.id === listing.userId || user.role === 'ADMIN')
+  );
 
   const conditionObj = CONDITIONS.find((c) => c.id === listing.condition);
   const imageUrl =
@@ -144,6 +149,20 @@ export function ListingCard({ listing, isSavedInitial = false, onSaveToggle }: L
 
         {/* Top Right Action Buttons */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+          {isOwner && (
+            <span
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = `/marketplace/${listing.id}?edit=true`;
+              }}
+              title="Edit listing"
+              className="w-7 h-7 rounded-full flex items-center justify-center transition-all bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 hover:bg-primary hover:text-white shadow-sm cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </span>
+          )}
+
           <button
             onClick={handleShare}
             aria-label="Share listing"

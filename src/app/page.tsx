@@ -211,7 +211,11 @@ export default function HomePage() {
             ) : (
               <div className="space-y-4">
                 {featuredPosts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onDelete={(id) => setFeaturedPosts((prev) => prev.filter((p) => p.id !== id))}
+                  />
                 ))}
               </div>
             )}

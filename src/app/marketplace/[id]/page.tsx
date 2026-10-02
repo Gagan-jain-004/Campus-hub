@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { formatPrice, formatTimeAgo, formatDate } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -20,13 +20,20 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Pencil,
+  Trash2,
+  X,
+  AlertTriangle,
+  Tag,
 } from 'lucide-react';
-import { CONDITIONS } from '@/lib/constants';
+import { CATEGORIES, CONDITIONS } from '@/lib/constants';
 import { ReportModal } from '@/components/common/ReportModal';
+import { ImageUpload } from '@/components/common/ImageUpload';
 
 export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +43,23 @@ export default function ListingDetailPage() {
   const [contacting, setContacting] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Edit Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editCategory, setEditCategory] = useState('ELECTRONICS');
+  const [editCondition, setEditCondition] = useState('GOOD');
+  const [editNegotiable, setEditNegotiable] = useState(true);
+  const [editLocation, setEditLocation] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStatus, setEditStatus] = useState('ACTIVE');
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Delete Modal State
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     async function loadItem() {
       try {
@@ -43,6 +67,9 @@ export default function ListingDetailPage() {
         const data = await res.json();
         if (data.success) {
           setListing(data.data);
+          if (searchParams.get('edit') === 'true') {
+            openEditModalWithData(data.data);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -51,7 +78,104 @@ export default function ListingDetailPage() {
       }
     }
     if (params.id) loadItem();
-  }, [params.id]);
+  }, [params.id, searchParams]);
+
+  const openEditModalWithData = (item: any) => {
+    setEditTitle(item.title);
+    setEditPrice(item.price.toString());
+    setEditCategory(item.category);
+    setEditCondition(item.condition);
+    setEditNegotiable(item.negotiable);
+    setEditLocation(item.location);
+    setEditDescription(item.description);
+    setEditStatus(item.status);
+    setEditImages(item.images?.map((i: any) => i.url) || []);
+    setIsEditOpen(true);
+  };
+
+  const handleOpenEdit = () => {
+    if (listing) openEditModalWithData(listing);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !editTitle.trim() || !editPrice || !editLocation.trim() || !editDescription.trim()) return;
+
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/marketplace/${listing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          title: editTitle.trim(),
+          price: parseFloat(editPrice),
+          category: editCategory,
+          condition: editCondition,
+          negotiable: editNegotiable,
+          location: editLocation.trim(),
+          description: editDescription.trim(),
+          status: editStatus,
+          images: editImages,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setListing(data.data);
+        setIsEditOpen(false);
+      } else {
+        alert(data.error || 'Failed to update listing.');
+      }
+    } catch (err) {
+      console.error('Error updating listing:', err);
+      alert('An error occurred while saving listing.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleToggleSold = async () => {
+    if (!user || !listing) return;
+    const newStatus = listing.status === 'SOLD' ? 'ACTIVE' : 'SOLD';
+    try {
+      const res = await fetch(`/api/marketplace/${listing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          status: newStatus,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setListing((prev: any) => ({ ...prev, status: newStatus }));
+      }
+    } catch (err) {
+      console.error('Error updating listing status:', err);
+    }
+  };
+
+  const handleDeleteListing = async () => {
+    if (!user || !listing) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/marketplace/${listing.id}?userId=${user.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        router.push('/marketplace');
+      } else {
+        alert(data.error || 'Failed to delete listing.');
+      }
+    } catch (err) {
+      console.error('Error deleting listing:', err);
+      alert('An error occurred while deleting listing.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -74,7 +198,7 @@ export default function ListingDetailPage() {
   }
 
   const conditionObj = CONDITIONS.find((c) => c.id === listing.condition);
-  const isOwner = user?.id === listing.userId;
+  const isOwner = Boolean(user && (user.id === listing.userId || user.role === 'ADMIN'));
 
   const handleMessageSeller = async () => {
     if (!user) {
@@ -199,34 +323,41 @@ export default function ListingDetailPage() {
               <MapPin className="w-3.5 h-3.5 text-indigo-300" />
               <span>{listing.location}</span>
             </div>
+
+            {/* Status Badge */}
+            {listing.status === 'SOLD' && (
+              <div className="absolute top-4 right-4 bg-rose-600/90 backdrop-blur-md text-white text-xs font-mono font-bold px-3 py-1 rounded-lg shadow-sm">
+                SOLD OUT
+              </div>
+            )}
           </div>
 
           {/* Thumbnails */}
           {listing.images && listing.images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            <div className="grid grid-cols-4 gap-3">
               {listing.images.map((img: any, idx: number) => (
                 <button
-                  key={img.id || idx}
+                  key={idx}
                   onClick={() => setSelectedImage(idx)}
-                  className={`relative w-20 h-16 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
+                  className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
                     selectedImage === idx
-                      ? 'border-primary ring-2 ring-primary/20'
-                      : 'border-slate-200 dark:border-slate-700 opacity-70 hover:opacity-100'
+                      ? 'border-primary ring-2 ring-primary/20 shadow-md scale-102'
+                      : 'border-slate-200 dark:border-slate-800 opacity-70 hover:opacity-100'
                   }`}
                 >
-                  <Image src={img.url} alt="" fill className="object-cover" />
+                  <Image src={img.url} alt={`${listing.title} preview ${idx}`} fill className="object-cover" />
                 </button>
               ))}
             </div>
           )}
 
-          {/* Safety Notice Box */}
-          <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200 space-y-1.5 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Campus Safety Verified</span>
+          {/* Safety Notice Card */}
+          <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 text-xs space-y-1.5 shadow-subtle">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertCircle className="w-4 h-4 text-amber-600" />
+              <span>Campus Trading Safety Rule</span>
             </div>
-            <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
               Always meet in public campus zones like the Central Library, Department lobbies, or Hostels common rooms. Inspect items thoroughly before handing over cash or UPI.
             </p>
           </div>
@@ -268,18 +399,52 @@ export default function ListingDetailPage() {
 
             {/* Action Buttons */}
             <div className="space-y-2.5 pt-2">
-              <button
-                onClick={handleMessageSeller}
-                disabled={contacting || isOwner}
-                className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary-hover shadow-elevated flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              >
-                {contacting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <MessageSquare className="w-4 h-4" />
-                )}
-                <span>{isOwner ? 'This is Your Listing' : 'Message Seller In-App'}</span>
-              </button>
+              {isOwner ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleOpenEdit}
+                      className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary-hover shadow-subtle flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Edit Listing</span>
+                    </button>
+
+                    <button
+                      onClick={handleToggleSold}
+                      className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        listing.status === 'SOLD'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{listing.status === 'SOLD' ? 'Mark Available' : 'Mark as Sold'}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setIsDeleteOpen(true)}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Listing</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleMessageSeller}
+                  disabled={contacting}
+                  className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary-hover shadow-elevated flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {contacting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="w-4 h-4" />
+                  )}
+                  <span>Message Seller In-App</span>
+                </button>
+              )}
 
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -316,13 +481,23 @@ export default function ListingDetailPage() {
                   )}
                 </button>
 
-                <button
-                  onClick={() => setIsReportOpen(true)}
-                  className="py-2 px-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Flag className="w-3.5 h-3.5" />
-                  <span>Report</span>
-                </button>
+                {!isOwner ? (
+                  <button
+                    onClick={() => setIsReportOpen(true)}
+                    className="py-2 px-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Flag className="w-3.5 h-3.5" />
+                    <span>Report</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleOpenEdit}
+                    className="py-2 px-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Edit</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -344,52 +519,323 @@ export default function ListingDetailPage() {
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-indigo-50 text-primary font-bold flex items-center justify-center text-sm">
-                      {listing.user.name[0]}
+                      {listing.user?.name?.[0] || 'S'}
                     </div>
                   )}
 
                   <div>
                     <div className="flex items-center gap-1.5">
                       <h4 className="font-semibold text-sm text-slate-900 dark:text-white">
-                        {listing.user.name}
+                        {listing.user?.name}
                       </h4>
-                      {listing.user.isVerified && (
+                      {listing.user?.isVerified && (
                         <ShieldCheck className="w-4 h-4 text-emerald-600" />
                       )}
                     </div>
                     <p className="text-xs text-slate-500">
-                      {listing.user.branch || 'Student'} • {listing.college?.shortName}
+                      {listing.user?.branch || 'Student'} • {listing.college?.shortName}
                     </p>
                   </div>
+                </div>
+
+                <span className="text-xs font-mono text-slate-400">
+                  Joined {formatDate(listing.user?.createdAt)}
+                </span>
+              </div>
+            </div>
+
+            {/* Overview & Metadata Table */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                Listing Specifications
+              </span>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-0.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase">Category</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">{listing.category}</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-0.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase">Condition</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">{conditionObj?.label || listing.condition}</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-0.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase">Listed On</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">{formatDate(listing.createdAt)}</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-0.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase">Views</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">{listing.views} campus visits</p>
                 </div>
               </div>
             </div>
 
-            {/* Meta Info */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-500">
-              <div>
-                <span className="block text-slate-400">POSTED</span>
-                <span>{formatDate(listing.createdAt)}</span>
-              </div>
-              <div>
-                <span className="block text-slate-400">VIEWS</span>
-                <span>{listing.views} campus views</span>
-              </div>
+            {/* Description Area */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                Seller's Description
+              </span>
+              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                {listing.description}
+              </p>
             </div>
-          </div>
-
-          {/* Description Block */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-card space-y-3">
-            <h3 className="font-heading font-semibold text-base text-slate-900 dark:text-white">
-              Item Description
-            </h3>
-            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-              {listing.description}
-            </p>
           </div>
         </div>
       </div>
 
+      {/* Edit Listing Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-primary flex items-center justify-center">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-base text-slate-900 dark:text-white">
+                    Edit Marketplace Listing
+                  </h3>
+                  <p className="text-xs text-slate-500">Update item price, details, or photos</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Item Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="e.g., Engineering Mathematics 1 Book (HK Dass)"
+                  className="w-full px-3.5 py-2.5 text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              {/* Price & Negotiable */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Price (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="1"
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    placeholder="350"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={editNegotiable}
+                      onChange={(e) => setEditNegotiable(e.target.checked)}
+                      className="rounded text-primary focus:ring-primary/20 accent-primary"
+                    />
+                    <span>Price Negotiable</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Category & Condition */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Category *
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    {CATEGORIES.filter((c) => c.id !== 'ALL').map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Condition *
+                  </label>
+                  <select
+                    value={editCondition}
+                    onChange={(e) => setEditCondition(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    {CONDITIONS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Location & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Pickup Location / Hostel *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    placeholder="e.g., Hostel 3 or Main Canteen"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Listing Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="ACTIVE">ACTIVE (Available for sale)</option>
+                    <option value="SOLD">SOLD OUT</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Detailed Description *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Describe your item, reason for selling, inclusions..."
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                />
+              </div>
+
+              {/* Photos */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Photos (Up to 4)
+                </label>
+                <ImageUpload
+                  images={editImages}
+                  onChange={(urls) => setEditImages(urls)}
+                  maxImages={4}
+                  label="Upload Item Photos"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(false)}
+                  disabled={isUpdating}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating || !editTitle.trim() || !editPrice || !editLocation.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-elevated transition-colors disabled:opacity-50"
+                >
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-base text-slate-900 dark:text-white">
+                  Delete Listing?
+                </h3>
+                <p className="text-xs text-slate-500">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              Are you sure you want to delete <span className="font-semibold text-slate-800 dark:text-slate-200">"{listing.title}"</span>? All saved bookmarks and inquiries will be permanently removed.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteOpen(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteListing}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Permanently</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
       <ReportModal
         isOpen={isReportOpen}
         onClose={() => setIsReportOpen(false)}
