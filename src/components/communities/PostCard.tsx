@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { formatTimeAgo } from '@/lib/utils';
-import { ArrowBigUp, MessageSquare, ShieldCheck, UserCircle2, Flag, Send, Loader2 } from 'lucide-react';
+import { ArrowBigUp, MessageSquare, ShieldCheck, UserCircle2, Flag, Send, Loader2, Share2, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { ReportModal } from '@/components/common/ReportModal';
 
@@ -58,6 +58,60 @@ export function PostCard({ post }: PostCardProps) {
   const [isAnonymousComment, setIsAnonymousComment] = useState(false);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isHighlighted, setIsHighlighted] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === `#post-${post.id}`) {
+      setIsHighlighted(true);
+      const timer = setTimeout(() => setIsHighlighted(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [post.id]);
+
+  const handleShare = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = `${baseUrl}${post.community?.slug ? `/communities/${post.community.slug}` : '/communities'}#post-${post.id}`;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title,
+          text: `Check out this post on CampusHub: "${post.title}"`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+
+    // Clipboard fallback
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      console.error('Failed to copy link', e);
+    }
+  };
 
   const handleUpvote = async () => {
     if (!user) {
@@ -107,7 +161,14 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <>
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-card space-y-3.5">
+      <div
+        id={`post-${post.id}`}
+        className={`bg-white dark:bg-slate-900 border rounded-xl p-4 sm:p-5 transition-all shadow-card space-y-3.5 scroll-mt-24 ${
+          isHighlighted
+            ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-elevated'
+            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+        }`}
+      >
         {/* Post Meta Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -162,13 +223,27 @@ export function PostCard({ post }: PostCardProps) {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsReportOpen(true)}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50"
-            title="Report Post"
-          >
-            <Flag className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleShare}
+              className={`p-1.5 rounded-lg transition-colors ${
+                copied
+                  ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40'
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+              title="Share Post Link"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              onClick={() => setIsReportOpen(true)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+              title="Report Post"
+            >
+              <Flag className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Post Body */}
@@ -196,7 +271,7 @@ export function PostCard({ post }: PostCardProps) {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-mono font-medium transition-all ${
                 hasUpvoted
                   ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-primary'
-                  : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
               }`}
             >
               <ArrowBigUp className={`w-4 h-4 ${hasUpvoted ? 'fill-current text-primary' : ''}`} />
@@ -206,12 +281,35 @@ export function PostCard({ post }: PostCardProps) {
             {/* Comments Toggle */}
             <button
               onClick={() => setShowComments(!showComments)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-50 font-mono font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 font-mono font-medium transition-colors"
             >
               <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
               <span>{comments.length} replies</span>
             </button>
           </div>
+
+          {/* Share Button */}
+          <button
+            onClick={handleShare}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-mono font-medium transition-all ${
+              copied
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-primary'
+            }`}
+            title="Share post link"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                <span>Share</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Expandable Comments Drawer */}

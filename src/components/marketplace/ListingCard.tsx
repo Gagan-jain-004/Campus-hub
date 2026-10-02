@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatPrice, formatTimeAgo } from '@/lib/utils';
-import { MapPin, Bookmark, CheckCircle2, ShieldCheck, Tag } from 'lucide-react';
+import { MapPin, Bookmark, CheckCircle2, ShieldCheck, Tag, Share2, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { CONDITIONS } from '@/lib/constants';
 
@@ -47,11 +47,53 @@ export function ListingCard({ listing, isSavedInitial = false, onSaveToggle }: L
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(isSavedInitial);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const conditionObj = CONDITIONS.find((c) => c.id === listing.condition);
   const imageUrl =
     listing.images?.[0]?.url ||
     'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = `${baseUrl}/marketplace/${listing.id}`;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: listing.title,
+          text: `Check out "${listing.title}" on CampusHub:`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy', err);
+    }
+  };
 
   const handleSave = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -100,19 +142,33 @@ export function ListingCard({ listing, isSavedInitial = false, onSaveToggle }: L
           <span className="truncate max-w-[130px] uppercase">{listing.location}</span>
         </div>
 
-        {/* Save / Bookmark Button */}
-        <button
-          onClick={handleSave}
-          disabled={saveLoading}
-          aria-label="Save listing"
-          className={`absolute top-2.5 right-2.5 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-            isSaved
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 shadow-sm'
-          }`}
-        >
-          <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
-        </button>
+        {/* Top Right Action Buttons */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+          <button
+            onClick={handleShare}
+            aria-label="Share listing"
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+              copied
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 shadow-sm hover:text-primary'
+            }`}
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            onClick={handleSave}
+            disabled={saveLoading}
+            aria-label="Save listing"
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+              isSaved
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 shadow-sm'
+            }`}
+          >
+            <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
+          </button>
+        </div>
 
         {/* Multi-photo Indicator Badge */}
         {listing.images && listing.images.length > 1 && (

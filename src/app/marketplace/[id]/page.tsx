@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Bookmark,
   Share2,
+  Check,
   Flag,
   ArrowLeft,
   ChevronRight,
@@ -33,6 +34,7 @@ export default function ListingDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [contacting, setContacting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function loadItem() {
@@ -125,6 +127,43 @@ export default function ListingDetailPage() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleShare = async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: listing.title,
+          text: `Check out "${listing.title}" for ${formatPrice(listing.price)} on CampusHub:`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      console.error('Failed to copy', e);
     }
   };
 
@@ -242,22 +281,44 @@ export default function ListingDetailPage() {
                 <span>{isOwner ? 'This is Your Listing' : 'Message Seller In-App'}</span>
               </button>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={handleSave}
-                  className={`py-2 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
                     isSaved
                       ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-primary'
                       : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
-                  <span>{isSaved ? 'Saved' : 'Save Item'}</span>
+                  <span>{isSaved ? 'Saved' : 'Save'}</span>
+                </button>
+
+                <button
+                  onClick={handleShare}
+                  className={`py-2 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                    copied
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 hover:text-primary'
+                  }`}
+                  title="Share Listing"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Share</span>
+                    </>
+                  )}
                 </button>
 
                 <button
                   onClick={() => setIsReportOpen(true)}
-                  className="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5 transition-colors"
+                  className="py-2 px-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Flag className="w-3.5 h-3.5" />
                   <span>Report</span>
